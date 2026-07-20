@@ -1,0 +1,5 @@
+.env
+__pycache__/
+.streamlit/
+check.py
+all_pipeline_code.txt
