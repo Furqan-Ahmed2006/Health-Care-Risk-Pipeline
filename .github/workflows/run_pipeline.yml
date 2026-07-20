@@ -5,44 +5,80 @@ on:
     branches:
       - main
   schedule:
-    - cron: '0 0 * * *'
+    - cron: '0 19 * * *'
   workflow_dispatch: 
 
 jobs:
-  run-etl-and-train:
+  pipeline-try-1:
     runs-on: ubuntu-latest
-
     steps:
-    - name: Checkout Repository Code
+    - name: Checkout Code
       uses: actions/checkout@v4
 
-    - name: Set up Python Environment
+    - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-python-version: '3.10'
+        python-version: '3.10'
         cache: 'pip'
 
-    - name: Install System Dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
+    - name: Install Dependencies
+      run: pip install -r requirements.txt
 
-    - name: Execute ETL Data Streaming Layer
-      env:
-        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-        SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+    - name: Run ETL Layer (Try 1)
       run: python load.py
-
-    - name: Execute Model Re-Training & Optimization Layer
       env:
         SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
         SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-      run: python train.py
 
-    - name: Commit and Push Updated Artifacts (Model & Metadata)
+    - name: Run ML Training Layer (Try 1)
+      run: python train.py
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+
+    - name: Commit Artifacts if Success
+      if: success()
       run: |
         git config --global user.name "GitHub Actions Bot"
         git config --global user.email "actions@github.com"
         git add healthcare_model.pkl
-        # Sirf tab commit karega agar model file update hui hogi taake loop crash na ho
-        git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 Auto-updated trained XGBoost model artifacts [Skip CI]" && git push)
+        git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 Auto-updated model [Skip CI]" && git push)
+
+  pipeline-try-2:
+    needs: pipeline-try-1
+    if: failure() 
+    runs-on: ubuntu-latest
+    steps:
+    - name: Wait for 5 minutes before retry
+      run: sleep 300 
+
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install Dependencies
+      run: pip install -r requirements.txt
+
+    - name: Run ETL Layer (Try 2)
+      run: python load.py
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+
+    - name: Run ML Training Layer (Try 2)
+      run: python train.py
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+
+    - name: Commit Artifacts if Success
+      if: success()
+      run: |
+        git config --global user.name "GitHub Actions Bot"
+        git config --global user.email "actions@github.com"
+        git add healthcare_model.pkl
+        git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 Auto-updated model [Skip CI]" && git push)
