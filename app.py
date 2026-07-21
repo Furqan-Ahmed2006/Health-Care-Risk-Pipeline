@@ -12,13 +12,25 @@ load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
-@st.cache_resource
+@st.cache_resource(ttl=3600)
 def init_supabase():
     if SUPABASE_URL and SUPABASE_KEY:
         return create_client(SUPABASE_URL, SUPABASE_KEY)
     return None
 
 supabase = init_supabase()
+
+@st.cache_data(ttl=3600)
+def fetch_fda_data():
+    if supabase:
+        return supabase.table("fda_adverse_events").select("*").execute().data
+    return []
+
+@st.cache_data(ttl=3600)
+def fetch_disease_data():
+    if supabase:
+        return supabase.table("disease_daily_metrics").select("*").execute().data
+    return []
 
 @st.cache_resource
 def load_ml_model():
@@ -43,11 +55,8 @@ else:
         st.subheader("📡 Live Cloud Infrastructure Analytics")
         
         try:
-            fda_res = supabase.table("fda_adverse_events").select("*").execute()
-            disease_res = supabase.table("disease_daily_metrics").select("*").execute()
-            
-            df_fda = pd.DataFrame(fda_res.data)
-            df_disease = pd.DataFrame(disease_res.data)
+            df_fda = pd.DataFrame(fetch_fda_data())
+            df_disease = pd.DataFrame(fetch_disease_data())
             
             kpi1, kpi2, kpi3 = st.columns(3)
             with kpi1:
@@ -75,7 +84,6 @@ else:
                 if not df_disease.empty:
                     df_disease['date'] = pd.to_datetime(df_disease['date'])
                     df_disease = df_disease.sort_values('date')
-                    # BUG FIX: 'active_cases' → 'daily_new_cases' (jo transform mein actually banta hai)
                     st.line_chart(df_disease.set_index('date')['daily_new_cases'])
                 else:
                     st.info("No Disease Metrics synced yet.")
