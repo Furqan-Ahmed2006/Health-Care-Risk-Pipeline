@@ -44,6 +44,11 @@ jobs:
         git add healthcare_model.pkl
         git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 Auto-updated model [Skip CI]" && git push)
 
+    - name: Keep Streamlit App Awake
+      if: always()
+      run: |
+        curl -X GET "https://health-care-risk-pipeline-d7esu25tn98w5cplrc3euu.streamlit.app/_stcore/health"
+
   pipeline-try-2:
     needs: pipeline-try-1
     if: failure() 
@@ -82,6 +87,8 @@ jobs:
         git config --global user.email "actions@github.com"
         git add healthcare_model.pkl
         git diff --quiet && git diff --staged --quiet || (git commit -m "🤖 Auto-updated model [Skip CI]" && git push)
+
     - name: Keep Streamlit App Awake
+      if: always()
       run: |
-        curl -s https://health-care-risk-pipeline-d7esu25tn98w5cplrc3euu.streamlit.app > /dev/null
+        curl -X GET "https://health-care-risk-pipeline-d7esu25tn98w5cplrc3euu.streamlit.app/_stcore/health"
